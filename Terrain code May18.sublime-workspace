@@ -1,0 +1,244 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+		]
+	},
+	"buffers":
+	[
+		{
+			"contents": "var canvas = document.getElementById('myCanvas');\nvar ctx = canvas.getContext('2d');\n\nvar x = canvas.width/2;\nvar y = canvas.height - 30;\nvar dx = 2;\nvar dy = -2;\nvar ballRadius = 10;\nvar paddleHeight = 10;\nvar paddleWidth = 75;\nvar paddleX = (canvas.width-paddlewidth)/2;\nvar rightPressed = false;\nvar leftPressed = false;\n\ndocument.addEventListener(\"keydown\", keyDownHandler);\ndocument.addEventListener(\"keyup\", keyUpHandler);\n\nfunction keyDownHandler(e) {\n\tif(e.keyCode == 39) {\n\t\trightPressed = true;\n\t}\n\telse if(e.keyCode == 37) {\n\t\tleftPressed = true;\n\t}\n}\n\nfunction keyUpHandler(e) {\n\tif(e.keyCode == 39) {\n\t\trightPressed = false;\n\t}\n\telse if(e.keyCode == 37) {\n\t\tleftPressed = false;\n\t}\n}\n\nfunction drawBall() {\n\tctx.beginPath();\n\tctx.arc(x, y, ballRadius, 0, Math.PI*2);\n\tctx.fillStyle = \"#0095DD\";\n\tctx.fill();\n\tctx.closePath();\n}\n\nfunction drawPaddle() {\n\tctx.beginPath();\n\tctx.rect(paddleX, canvas.height-paddleHeight, paddleWidth, paddleHeight);\n\tctx.fillStyle = \"#0095DD\";\n\tctx.fill();\nctx.closePath();\n}\nfunction draw () {\n\tctx.clearRect (0, 0, canvas.width, canvas.height);\n\tdrawBall();\t\n\tdrawPaddle();\n\n\tif(y + dy > canvas.height-ballRadius || y + dy < ballRadius) {\n\t\tdy = -dy;\n\t}\n\tif(x + dx > canvas.width-ballRadius || x + dx < ballRadius) {\n\t\tdx = -dx;\n\t}\n\nif(rightPressed && paddleX < canvas.width-paddleWidth) {\n\tpaddleX += 7;\n}\nelse if(leftPressed && paddleX > 0) {\n\tpaddleX -= 7;\n}\n\n\tx += dx;\n\ty += dy;\n}\n\nsetInterval(draw, 10);",
+			"file": "Breakout Game March 2018",
+			"file_size": 0,
+			"file_write_time": 131656075238671441,
+			"settings":
+			{
+				"buffer_size": 1453,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"contents": ",script type=\"text/javascript\" src=\"./terrain.js\"></script>\n\n/**\n * @fileoverview Random fractal terrain generator.\n * @author Xueqiao Xu <xueqiaoxu@gmail.com>\n */\n\n// create local scope\n(function() {\n\n  /**\n   * Generate fractal terrain.\n   * @param {number} width - Width of rectangle.\n   * @param {number} height - Height of rectangle.\n   * @param {number} smoothness - Higher this value, smoother the terrain.\n   *      recommended value is 1.\n   * @return {Array.<Array.<int>>} A two-dimensional array holding the elevations \n   *     of the vertices of the terrain.\n   */\n  function generateTerrain(width, height, smoothness) {\n    var smoothness = typeof smoothness === 'undefined' ? 1 : smoothness;\n    var size = smallestPowerOfTwoAfter(Math.max(width, height));\n\n    var squareTerrain = generateSquareTerrain(size, smoothness);\n    var terrain = [generateTerrain(32, 32, 1.0);];\n    // terrain is a matrix of size (width + 1) x (height + 1)\n    for (var i = 0; i <= height; ++i) {\n      terrain.push(squareTerrain[i].slice(0, width + 1));\n    }\n\n    return terrain;\n  }\n\n  function smallestPowerOfTwoAfter(n) {\n    var ret = 1;\n    while (ret < n) {\n      ret <<= 1;\n    }\n    return ret;\n  }\n\n  /**\n   * Generate a square fractal terrain.\n   * @param {number} size - Size of terrain, MUST be a power of 2.\n   * @param {number} smoothness - Higher this value, smoother the terrain.\n   *      recommended value is 1.\n   * @return {Array.<Array.<int>>} A two-dimensional array holding the elevations \n   *     of the vertices of the terrain. Each elevation will be between -1 and 1.\n   */\n  function generateSquareTerrain(size, smoothness) {\n    // throw error if size is not a power of two.\n    if (size & (size - 1)) {\n      throw new Error('Expected terrain size to be a power of 2, received ' + \n                      size + ' instead.');\n    }\n\n    // generate a square matrix\n    var mat = generateMatrix(size + 1);\n\n    // iterate on the matrix using the square-diamond algorithm\n    iterate(mat, smoothness);\n\n    return mat;\n  }\n\n  /**\n   * Generate a square matrix\n   * @param {number} size - Width and length of the square.\n   * @return {Array.<Array.<int>>} The vertices matrix of the square\n   */\n  function generateMatrix(size) {\n    var matrix = [];\n\n    for (var i = 0; i < size; i++) {\n      var row = [];\n      for (var j = 0; j < size; ++j) {\n        row.push(0);\n      }\n      matrix.push(row);\n    };\n\n    return matrix;\n  }\n\n\n  /**\n   * Iterate on the matrix using Diamond-Square algorithm.\n   * @param {Array.<Array.<int>>} matrix - Matrix to be iterated on.\n   * @param {number} smoothness - Smoothness of terrain.\n   */\n  function iterate(matrix, smoothness) {\n    // the count of iterations applied so far\n    var counter = 0;\n    // the total number of iterations to apply is log_2^(size of matrix)\n    var numIteration = Math.log(matrix.length - 1) / Math.LN2;\n    while (counter++ < numIteration) {\n      diamond(matrix, counter, smoothness);\n      square(matrix, counter, smoothness);\n    }\n  }\n\n\n  /**\n   * Diamond step of iteration.\n   * @param {Array.<Array.<int>>} matrix - Matrix to iterate on.\n   * @param {number} depth - Depth of current iteration(starts from 1).\n   * @param {number} smoothness - Smoothness of terrain.\n   */\n  function diamond(matrix, depth, smoothness) {\n\n    var len = matrix.length;\n    var terrainSize = len - 1;\n    var numSegs = 1 << (depth - 1);\n    var span = terrainSize / numSegs;\n    var half = span / 2;\n\n    // enumerate sub-squares \n    // for each sub-square, the height of the center is caculated\n    // by averaging the height of its four vertices plus a random offset.\n    for (var x = 0; x < terrainSize; x += span) {\n      for (var y = 0; y < terrainSize; y += span) {\n        //  (x, y)\n        //    \\\n        //     a---b---c\n        //     |   |   |\n        //     d---e---f\n        //     |   |   |\n        //     g---h---i\n        // \n        //     \\___ ___/\n        //         V\n        //       span \n        // \n        var va = [x, y];\n        var vc = [x + span, y];\n        var ve = [x + half, y + half];\n        var vg = [x, y + span];\n        var vi = [x + span, y + span];\n\n        // heights of vertices\n        var heights = [va, vc, vg, vi].map(function(v) {\n          return matrix[v[1]][v[0]];\n        });\n\n        // average height\n        var avg = average(heights);\n\n        // random offset\n        var offset = getH(smoothness, depth);\n\n        // set center height\n        matrix[ve[1]][ve[0]] = avg + offset;\n      }\n    }\n  }\n\n\n  /**\n   * Square step of iteration.\n   * @param {Array.<Array.<int>>} matrix - Matrix to iterate on.\n   * @param {number} depth - Depth of current iteration(starts from 1).\n   * @param {number} smoothness - Smoothness of terrain.\n   */\n  function square(matrix, depth, smoothness) {\n\n    var len = matrix.length\n    var terrainSize = len - 1;\n    var numSegs = 1 << (depth - 1);\n    var span = terrainSize / numSegs;\n    var half = span / 2;\n\n    // enumerate sub-dimaonds \n    for (var x = 0; x < terrainSize; x += span) {\n      for (var y = 0; y < terrainSize; y += span) {\n        // for each sub-square, the height of the center is caculated\n        // by averaging the height of its four vertices plus a random offset.\n        // for example, \n        //       h = avg(g, c, i, m) + random;\n        //       f = avg(a, g, k, i) + random;\n        //       j = f;\n        //\n        //  (x, y)\n        //    \\\n        //     a---b---c---d---e\n        //     | \\ | / | \\ | / |\n        //     f---g---h---i---j\n        //     | / | \\ | / | \\ |\n        //     k---l---m---n---o\n        //     | \\ | / | \\ | / |\n        //     p---q---r---s---t\n        //     | / | \\ | / | \\ |\n        //     u---v---w---x---y\n        // \n        //     \\___ ___/\n        //         V\n        //       span \n        // \n        var va = [x, y];\n        var vb = [x + half, y];\n        var vc = [x + span, y];\n        var vf = [x, y + half];\n        var vg = [x + half, y + half];\n        var vh = [x + span, y + half];\n        var vk = [x, y + span];\n        var vl = [x + half, y + span];\n        var vm = [x + span, y + span];\n        \n        // right of h\n        var vhr = [x + half * 3, y + half];\n        if (vhr[0] > terrainSize) vhr[0] = half;\n\n        // left of f\n        var vfl = [x - half, y + half]\n        if (vfl[0] < 0) vfl[0] = terrainSize - half;\n\n        // under l\n        var vlu = [x + half, y + half * 3];\n        if (vlu[1] > terrainSize) vlu[1] = half;\n\n        // above b\n        var vba = [x + half, y - half]\n        if (vba[1] < 0) vba[1] = terrainSize - half;\n\n        squareHelper(matrix, depth, smoothness, va, vg, vk, vfl, vf);\n        squareHelper(matrix, depth, smoothness, va, vba, vc, vg, vb);\n        squareHelper(matrix, depth, smoothness, vc, vhr, vm, vg, vh);\n        squareHelper(matrix, depth, smoothness, vk, vg, vm, vlu, vl);\n      }\n    }\n\n    // set the elevations of the rightmost and bottom vertices to \n    // equal the leftmost and topmost ones'.\n    for (var y = 0; y < terrainSize; y += span) {\n      matrix[y][terrainSize] = matrix[y][0];\n    }\n    for (var x = 0; x < terrainSize; x += span) {\n      matrix[terrainSize][x] = matrix[0][x];\n    }\n  }\n\n  function squareHelper(matrix, depth, smoothness, a, b, c, d, t) {\n    var heights = [a, b, c, d].map(function(v) {\n      return matrix[v[1]][v[0]];\n    });\n    var avg = average(heights);\n    var offset = getH(smoothness, depth);\n    matrix[t[1]][t[0]] = avg + offset;\n  }\n\n\n  /**\n   * Get a random offset.\n   * @param {number} smoothness - Higher the value, smoother the terrain.\n   *      recommended value is 1.\n   * @param {number} depth - Depth of current iteration(starts from 1).\n   */\n  function getH(smoothness, depth) {\n    var sign = Math.random() > 0.5 ? 1 : -1;\n    var reduce = 1;\n    for (var i = 0; i < depth; ++i) { \n      reduce *= Math.pow(2, -smoothness);\n    }\n    return sign * Math.random() * reduce;\n  }\n\n\n  function average(numbers) {\n    var sum = 0;\n    numbers.forEach(function(v) {\n      sum += v;\n    });\n    return sum / numbers.length;\n  }\n\n\n  // export to global\n  var root;\n  if (typeof exports !== 'undefined' && exports !== null) {\n    root = exports;\n  } else {\n    root = window;\n  }\n  root.generateTerrain = generateTerrain;\n\n}).call(this);",
+			"settings":
+			{
+				"buffer_size": 8314,
+				"line_ending": "Windows",
+				"name": ",script type=\"text/javascript\" src=\"./terrain.js\">"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+	],
+	"find":
+	{
+		"height": 0.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 1,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "Breakout Game March 2018",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1453,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1453,
+								1453
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 701.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 8314,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								8314
+							]
+						],
+						"settings":
+						{
+							"auto_name": ",script type=\"text/javascript\" src=\"./terrain.js\">",
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 0.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "",
+	"replace":
+	{
+		"height": 0.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
