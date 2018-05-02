@@ -1,0 +1,596 @@
+
+
+
+
+
+1 <script type="text/javascript" src="./terrain.js"></script>
+ 
+2 
+ 
+3 /**
+ 
+4  * @fileoverview Random fractal terrain generator.
+ 
+5  * @author Xueqiao Xu <xueqiaoxu@gmail.com>
+ 
+6  */
+ 
+7 
+ 
+8 // create local scope
+ 
+9 (function() {
+ 
+10 
+ 
+11   /**
+ 
+12    * Generate fractal terrain.
+ 
+13    * @param {360} width - Width of rectangle.
+ 
+14    * @param {500} height - Height of rectangle.
+ 
+15    * @param {1} smoothness - Higher this value, smoother the terrain.
+ 
+16    *      recommended value is 1.
+ 
+17    * @return {Array.<Array.<int>>} A two-dimensional array holding the elevations 
+ 
+18    *     of the vertices of the terrain.
+ 
+19    */
+ 
+20   function generateTerrain(width, height, smoothness) {
+ 
+21     var smoothness = typeof smoothness === 'undefined' ? 1 : smoothness;
+ 
+22     var size = smallestPowerOfTwoAfter(Math.max(width, height));
+ 
+23 
+ 
+24     var squareTerrain = generateSquareTerrain(size, smoothness);
+ 
+25     var terrain = [generateTerrain(32, 32, 1.0);];
+ 
+26     // terrain is a matrix of size (width + 1) x (height + 1)
+ 
+27     for (var i = 0; i <= height; ++i) {
+ 
+28       terrain.push(squareTerrain[i].slice(0, width + 1));
+ 
+29     }
+ 
+30 
+ 
+31     return terrain;
+ 
+32   }
+ 
+33 
+ 
+34   function smallestPowerOfTwoAfter(n) {
+ 
+35     var ret = 1;
+ 
+36     while (ret < n) {
+ 
+37       ret <<= 1;
+ 
+38     }
+ 
+39     return ret;
+ 
+40   }
+ 
+41 
+ 
+42   /**
+ 
+43    * Generate a square fractal terrain.
+ 
+44    * @param {100} size - Size of terrain, MUST be a power of 2.
+ 
+45    * @param {1} smoothness - Higher this value, smoother the terrain.
+ 
+46    *      recommended value is 1.
+ 
+47    * @return {Array.<Array.<int>>} A two-dimensional array holding the elevations 
+ 
+48    *     of the vertices of the terrain. Each elevation will be between -1 and 1.
+ 
+49    */
+ 
+50   function generateSquareTerrain(size, smoothness) {
+ 
+51     // throw error if size is not a power of two.
+ 
+52     if (size & (size - 1)) {
+ 
+53       throw new Error('Expected terrain size to be a power of 2, received ' + 
+ 
+54                       size + ' instead.');
+ 
+55     }
+ 
+56 
+ 
+57     // generate a square matrix
+ 
+58     var mat = generateMatrix(size + 1);
+ 
+59 
+ 
+60     // iterate on the matrix using the square-diamond algorithm
+ 
+61     iterate(mat, smoothness);
+ 
+62 
+ 
+63     return mat;
+ 
+64   }
+ 
+65 
+ 
+66   /**
+ 
+67    * Generate a square matrix
+ 
+68    * @param {300} size - Width and length of the square.
+ 
+69    * @return {Array.<Array.<int>>} The vertices matrix of the square
+ 
+70    */
+ 
+71   function generateMatrix(size) {
+ 
+72     var matrix = [];
+ 
+73 
+ 
+74     for (var i = 0; i < size; i++) {
+ 
+75       var row = [];
+ 
+76       for (var j = 0; j < size; ++j) {
+ 
+77         row.push(0);
+ 
+78       }
+ 
+79       matrix.push(row);
+ 
+80     };
+ 
+81 
+ 
+82     return matrix;
+ 
+83   }
+ 
+84 
+ 
+85 
+ 
+86   /**
+ 
+87    * Iterate on the matrix using Diamond-Square algorithm.
+ 
+88    * @param {Array.<Array.<int>>} matrix - Matrix to be iterated on.
+ 
+89    * @param {number} smoothness - Smoothness of terrain.
+ 
+90    */
+ 
+91   function iterate(matrix, smoothness) {
+ 
+92     // the count of iterations applied so far
+ 
+93     var counter = 0;
+ 
+94     // the total number of iterations to apply is log_2^(size of matrix)
+ 
+95     var numIteration = Math.log(matrix.length - 1) / Math.LN2;
+ 
+96     while (counter++ < numIteration) {
+ 
+97       diamond(matrix, counter, smoothness);
+ 
+98       square(matrix, counter, smoothness);
+ 
+99     }
+ 
+100   }
+ 
+101 
+ 
+102 
+ 
+103   /**
+ 
+104    * Diamond step of iteration.
+ 
+105    * @param {Array.<Array.<int>>} matrix - Matrix to iterate on.
+ 
+106    * @param {50} depth - Depth of current iteration(starts from 1).
+ 
+107    * @param {1} smoothness - Smoothness of terrain.
+ 
+108    */
+ 
+109   function diamond(matrix, depth, smoothness) {
+ 
+110 
+ 
+111     var len = matrix.length;
+ 
+112     var terrainSize = len - 1;
+ 
+113     var numSegs = 1 << (depth - 1);
+ 
+114     var span = terrainSize / numSegs;
+ 
+115     var half = span / 2;
+ 
+116 
+ 
+117     // enumerate sub-squares 
+ 
+118     // for each sub-square, the height of the center is caculated
+ 
+119     // by averaging the height of its four vertices plus a random offset.
+ 
+120     for (var x = 0; x < terrainSize; x += span) {
+ 
+121       for (var y = 0; y < terrainSize; y += span) {
+ 
+122         //  (x, y)
+ 
+123         //    \
+ 
+124         //     a---b---c
+ 
+125         //     |   |   |
+ 
+126         //     d---e---f
+ 
+127         //     |   |   |
+ 
+128         //     g---h---i
+ 
+129         // 
+ 
+130         //     \___ ___/
+ 
+131         //         V
+ 
+132         //       span 
+ 
+133         // 
+ 
+134         var va = [x, y];
+ 
+135         var vc = [x + span, y];
+ 
+136         var ve = [x + half, y + half];
+ 
+137         var vg = [x, y + span];
+ 
+138         var vi = [x + span, y + span];
+ 
+139 
+ 
+140         // heights of vertices
+ 
+141         var heights = [va, vc, vg, vi].map(function(v) {
+ 
+142           return matrix[v[1]][v[0]];
+ 
+143         });
+ 
+144 
+ 
+145         // average height
+ 
+146         var avg = average(heights);
+ 
+147 
+ 
+148         // random offset
+ 
+149         var offset = getH(smoothness, depth);
+ 
+150 
+ 
+151         // set center height
+ 
+152         matrix[ve[1]][ve[0]] = avg + offset;
+ 
+153       }
+ 
+154     }
+ 
+155   }
+ 
+156 
+ 
+157 
+ 
+158   /**
+ 
+159    * Square step of iteration.
+ 
+160    * @param {Array.<Array.<int>>} matrix - Matrix to iterate on.
+ 
+161    * @param {number} depth - Depth of current iteration(starts from 1).
+ 
+162    * @param {number} smoothness - Smoothness of terrain.
+ 
+163    */
+ 
+164   function square(matrix, depth, smoothness) {
+ 
+165 
+ 
+166     var len = matrix.length
+ 
+167     var terrainSize = len - 1;
+ 
+168     var numSegs = 1 << (depth - 1);
+ 
+169     var span = terrainSize / numSegs;
+ 
+170     var half = span / 2;
+ 
+171 
+ 
+172     // enumerate sub-dimaonds 
+ 
+173     for (var x = 0; x < terrainSize; x += span) {
+ 
+174       for (var y = 0; y < terrainSize; y += span) {
+ 
+175         // for each sub-square, the height of the center is caculated
+ 
+176         // by averaging the height of its four vertices plus a random offset.
+ 
+177         // for example, 
+ 
+178         //       h = avg(g, c, i, m) + random;
+ 
+179         //       f = avg(a, g, k, i) + random;
+ 
+180         //       j = f;
+ 
+181         //
+ 
+182         //  (x, y)
+ 
+183         //    \
+ 
+184         //     a---b---c---d---e
+ 
+185         //     | \ | / | \ | / |
+ 
+186         //     f---g---h---i---j
+ 
+187         //     | / | \ | / | \ |
+ 
+188         //     k---l---m---n---o
+ 
+189         //     | \ | / | \ | / |
+ 
+190         //     p---q---r---s---t
+ 
+191         //     | / | \ | / | \ |
+ 
+192         //     u---v---w---x---y
+ 
+193         // 
+ 
+194         //     \___ ___/
+ 
+195         //         V
+ 
+196         //       span 
+ 
+197         // 
+ 
+198         var va = [x, y];
+ 
+199         var vb = [x + half, y];
+ 
+200         var vc = [x + span, y];
+ 
+201         var vf = [x, y + half];
+ 
+202         var vg = [x + half, y + half];
+ 
+203         var vh = [x + span, y + half];
+ 
+204         var vk = [x, y + span];
+ 
+205         var vl = [x + half, y + span];
+ 
+206         var vm = [x + span, y + span];
+ 
+207         
+ 
+208         // right of h
+ 
+209         var vhr = [x + half * 3, y + half];
+ 
+210         if (vhr[0] > terrainSize) vhr[0] = half;
+ 
+211 
+ 
+212         // left of f
+ 
+213         var vfl = [x - half, y + half]
+ 
+214         if (vfl[0] < 0) vfl[0] = terrainSize - half;
+ 
+215 
+ 
+216         // under l
+ 
+217         var vlu = [x + half, y + half * 3];
+ 
+218         if (vlu[1] > terrainSize) vlu[1] = half;
+ 
+219 
+ 
+220         // above b
+ 
+221         var vba = [x + half, y - half]
+ 
+222         if (vba[1] < 0) vba[1] = terrainSize - half;
+ 
+223 
+ 
+224         squareHelper(matrix, depth, smoothness, va, vg, vk, vfl, vf);
+ 
+225         squareHelper(matrix, depth, smoothness, va, vba, vc, vg, vb);
+ 
+226         squareHelper(matrix, depth, smoothness, vc, vhr, vm, vg, vh);
+ 
+227         squareHelper(matrix, depth, smoothness, vk, vg, vm, vlu, vl);
+ 
+228       }
+ 
+229     }
+ 
+230 
+ 
+231     // set the elevations of the rightmost and bottom vertices to 
+ 
+232     // equal the leftmost and topmost ones'.
+ 
+233     for (var y = 0; y < terrainSize; y += span) {
+ 
+234       matrix[y][terrainSize] = matrix[y][0];
+ 
+235     }
+ 
+236     for (var x = 0; x < terrainSize; x += span) {
+ 
+237       matrix[terrainSize][x] = matrix[0][x];
+ 
+238     }
+ 
+239   }
+ 
+240 
+ 
+241   function squareHelper(matrix, depth, smoothness, a, b, c, d, t) {
+ 
+242     var heights = [a, b, c, d].map(function(v) {
+ 
+243       return matrix[v[1]][v[0]];
+ 
+244     });
+ 
+245     var avg = average(heights);
+ 
+246     var offset = getH(smoothness, depth);
+ 
+247     matrix[t[1]][t[0]] = avg + offset;
+ 
+248   }
+ 
+249 
+ 
+250 
+ 
+251   /**
+ 
+252    * Get a random offset.
+ 
+253    * @param {number} smoothness - Higher the value, smoother the terrain.
+ 
+254    *      recommended value is 1.
+ 
+255    * @param {number} depth - Depth of current iteration(starts from 1).
+ 
+256    */
+ 
+257   function getH(smoothness, depth) {
+ 
+258     var sign = Math.random() > 0.5 ? 1 : -1;
+ 
+259     var reduce = 1;
+ 
+260     for (var i = 0; i < depth; ++i) { 
+ 
+261       reduce *= Math.pow(2, -smoothness);
+ 
+262     }
+ 
+263     return sign * Math.random() * reduce;
+ 
+264   }
+ 
+265 
+ 
+266 
+ 
+267   function average(numbers) {
+ 
+268     var sum = 0;
+ 
+269     numbers.forEach(function(v) {
+ 
+270       sum += v;
+ 
+271     });
+ 
+272     return sum / numbers.length;
+ 
+273   }
+ 
+274 
+ 
+275 
+ 
+276   // export to global
+ 
+277   var root;
+ 
+278   if (typeof exports !== 'undefined' && exports !== null) {
+ 
+279     root = exports;
+ 
+280   } else {
+ 
+281     root = window;
+ 
+282   }
+ 
+283   root.generateTerrain = generateTerrain;
+ 
+284 
+ 
+285 }).call(this); 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+ 
